@@ -1,11 +1,6 @@
 <template>
   <div class="scanner-container">
     <h2>Scanner QR Code & Barcode</h2>
-
-    <div>
-      <button @click="StartScanQrCode">Start Scan</button>
-      <button @click="StartBarcodeScan">Start Barcode Scan</button>
-    </div>
     <!-- SCANNER LIVE -->
     <div v-if="cameraSupported">
       <div id="reader" class="reader-box"></div>
@@ -27,7 +22,6 @@
 <script lang="ts" setup>
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { BrowserMultiFormatReader } from "@zxing/browser";
 
 const scanResult = ref<string | null>(null);
 const cameraSupported = ref(true);
@@ -35,13 +29,64 @@ const cameraSupported = ref(true);
 const scannerId = "reader";
 let scanner: Html5QrcodeScanner | null = null;
 
+const props = defineProps<{
+  type: "qrcode" | "barcode"; 
+}>();
 // SCANNER
 onMounted(() => {
-  // Check if camera is supported 
+  // Check if camera is supported
   if (!navigator.mediaDevices?.getUserMedia) {
     cameraSupported.value = false;
     return;
   }
+
+  let formats: any[] = [];
+  let qrbox: { width: number; height: number } = { width: 0, height: 0 };
+  if (props.type === "qrcode") {
+    formats = [
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.CODABAR,
+    ];
+    qrbox = { width: 300, height: 100 };
+  } else {
+    formats = [Html5QrcodeSupportedFormats.QR_CODE];
+    qrbox = { width: 200, height: 200 };
+  }
+  scanner = new Html5QrcodeScanner(
+    scannerId,
+    {
+      fps: 10,
+      aspectRatio: 1.0,
+      disableFlip: false,
+      qrbox: qrbox,
+      videoConstraints: {
+        facingMode: "environment",
+        //high to improve the quality
+        width: { ideal: 3920 },
+        height: { ideal: 2080 },
+        advanced: [{ focusMode: "continuous" }] as any[],
+      },
+      formatsToSupport: formats as any[],
+    },
+    false
+  );
+
+  // Success callback
+  scanner.render(
+    (decodedText) => {
+      scanResult.value = decodedText;
+      console.log("Codice letto (live):", decodedText);
+    },
+    (errorMessage) => {
+      console.debug("Errore lettura:", errorMessage);
+    }
+  );
 });
 
 // Stop scanner when the component is unmounted
@@ -50,81 +95,6 @@ onBeforeUnmount(() => {
     console.error("Errore nello stop dello scanner:", err);
   });
 });
-
-const StartScanQrCode = () => {
-  scanner = new Html5QrcodeScanner(
-    scannerId,
-    {
-      fps: 10,
-      aspectRatio: 1.0,
-      disableFlip: false,
-      qrbox: { width: 200, height: 200 },
-      videoConstraints: {
-        facingMode: "environment",
-        //high to improve the quality
-        width: { ideal: 3920 },
-        height: { ideal: 2080 },
-        advanced: [{ focusMode: "continuous" }] as any[],
-      },
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.QR_CODE,
-      ],
-    },
-    false
-  );
-
-  // Success callback
-  scanner.render(
-    (decodedText) => {
-      scanResult.value = decodedText;
-      console.log("Codice letto (live):", decodedText);
-    },
-    (errorMessage) => {
-      console.debug("Errore lettura:", errorMessage);
-    }
-  );
-};
-const StartBarcodeScan = () => {
-  
-  scanner = new Html5QrcodeScanner(
-    scannerId,
-    {
-      fps: 10,
-      aspectRatio: 1.0,
-      disableFlip: false,
-      qrbox: {width: 300, height: 100},
-      videoConstraints: {
-        facingMode: "environment",
-        //high to improve the quality
-        width: { ideal: 3920 },
-        height: { ideal: 2080 },
-        advanced: [{ focusMode: "continuous" }] as any[],
-      },
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.CODABAR,
-      ],
-    },
-    false
-  );
-
-  // Success callback
-  scanner.render(
-    (decodedText) => {
-      scanResult.value = decodedText;
-      console.log("Codice letto (live):", decodedText);
-    },
-    (errorMessage) => {
-      console.debug("Errore lettura:", errorMessage);
-    }
-  );
-};
 </script>
 
 <style scoped>
